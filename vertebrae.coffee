@@ -1,29 +1,34 @@
-Vertebrae =
+this.Vertebrae = Vertebrae =
   VERSION: '0.1'
 
-  _viewStack: []
+  _history: []
 
-  push: (view, options = {}) ->
-    options.view = view
-    options.transition ||= 'slide'
+  push: (view, transition) ->
+    transition ||= 'slide'
     current = $('.active-view')
+    reverse = false
 
-    if @_viewStack.length == 0 and current? # the first view is prerendered
-      @_viewStack.push { html: current.dom[0], transition: options.transition }
+    if _.isEmpty(@_history) and !@_homeView? # this is our first view change, save the home view
+      @_homeView = current.get(0)
 
-    @_viewStack.push options
+    # relatively naive history implementation
+    if @_history.slice(-2,-1)[0]?.id == Backbone.history.getFragment() # we are going back
+      transition = _.last(@_history).transition
+      @_history.pop()
+      reverse = true
+    else
+      @_history.push { id: Backbone.history.getFragment(), transition: transition }
+
     next = $(view.render().el)
-    $('body').append next.css('display', 'none').addClass('view').selector
-    @_transition(current, next, options.transition)
+    $('body').append next.css('display', 'none').addClass('view').get(0)
+    @_transition(current, next, transition, reverse)
 
-  pop: (options) ->
-    if @_viewStack.length > 1 # we have something to go back to
-      transition = @_viewStack.pop().transition # get the transition we used
-      next = @_viewStack.pop() # get the view we are going back to
+  goHome: ->
+    if @_homeView?
       current = $('.active-view')
-      next = if next.html? then $(next.html).attr('class', '') else $(next.view.render().el)
-      $('body').append next.css('display', 'none').addClass('view').selector
-      @_transition(current, next, transition, true)
+      home = $(@_homeView).attr('class', '').css('display', 'none').addClass('view')
+      $('body').append home.get(0)
+      @_transition(current, home, _.last(@_history).transition, true)
 
   _transition: (current, next, transition, reverse = false) ->
     reverse = if reverse then 'reverse' else ''
